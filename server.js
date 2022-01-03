@@ -7,8 +7,8 @@ app.use(express.json());
 app.use(cors());
 
 //data storage in memory, no database used
-//const transactions = [{ "payer": "DANNON", "points": 1000, "timestamp": new Date("2020-11-02T14:00:00Z") },{ "payer": "UNILEVER", "points": 200, "timestamp": new Date("2020-10-31T11:00:00Z") },{ "payer": "DANNON", "points": -200, "timestamp": new Date("2020-10-31T15:00:00Z") },{ "payer": "MILLER COORS", "points": 10000, "timestamp": new Date("2020-11-01T14:00:00Z")},{ "payer": "DANNON", "points": 300, "timestamp": new Date("2020-10-31T10:00:00Z")}]
-const transactions = []
+let transactions = [{ "payer": "DANNON", "points": 1000, "timestamp": new Date("2020-11-02T14:00:00Z") },{ "payer": "UNILEVER", "points": 200, "timestamp": new Date("2020-10-31T11:00:00Z") },{ "payer": "DANNON", "points": -200, "timestamp": new Date("2020-10-31T15:00:00Z") },{ "payer": "MILLER COORS", "points": 10000, "timestamp": new Date("2020-11-01T14:00:00Z")},{ "payer": "DANNON", "points": 300, "timestamp": new Date("2020-10-31T10:00:00Z")}]
+//const transactions = []
 
 
 //routes, since only 3 routes used, I'll keep all in one file but with otherwise break up.
@@ -28,19 +28,19 @@ app.post('/addtransaction',(req,res)=>{
     return res.status(200).json(
         'successfully added transaction'
     )
-    
 
 })
 
 //route will expect a post with a spend in the body.
 app.post('/spend',(req,res)=>{
-    const sortedTransactions = transactions.sort((a,b)=>a.timestamp-b.timestamp)
+    transactions = transactions.sort((a,b)=>a.timestamp-b.timestamp)
+    const sortedTransactions = transactions
 
     let spend = req.body.spend
     let spendLog = []   
 
     //check if total points not enough 
-    if(transactions.map(e=>e.points).reduce((a,c)=>a+c)<spend){
+    if((transactions.length>0?transactions.map(e=>e.points).reduce((a,c)=>a+c):0)<spend){
         return res.status(400).json("not enough for spend")
     }
     //checks if for where amount would be negative if full amount was taken
@@ -61,18 +61,19 @@ app.post('/spend',(req,res)=>{
     for(let i =0;i<sortedTransactions.length;i++){
         
         //iteration through sorted transactions list to find oldest points to spend and check if at any point balance will be negative in the transaction log if full amount is taken, if take only enough for negative to not appear.
+        //(I considered adding negative point transacions to spend btu found the edge case of if the first transaction amount was over spend and there was a negative transaction amount by the same payer right after)
         if(sortedTransactions[i].points>0 && spend>0){
             if(sortedTransactions[i].points>=spend){
                 sortedTransactions[i].points-=spend
                 const amountLess = checkForNegative(sortedTransactions[i].payer,sortedTransactions)
                 spendLog.push({payer:sortedTransactions[i].payer,points:-spend+amountLess})
-                spend=0+amountLess
+                spend=amountLess
             }else{
                 const amountLess = checkForNegative(sortedTransactions[i].payer,sortedTransactions.slice(i+1))
                 spend-=sortedTransactions[i].points
                 spend+=amountLess
                 spendLog.push({payer:sortedTransactions[i].payer,points:-sortedTransactions[i].points+amountLess})
-                sortedTransactions[i].points=0
+                sortedTransactions[i].points=+amountLess
             }
         }
     }
@@ -93,6 +94,24 @@ app.post('/spend',(req,res)=>{
         result
     )
 
+})
+
+app.get('/accounts',(req,res)=>{
+    const hash ={}
+    for(let transaction of transactions){
+        if(hash[transaction.payer]){
+            hash[transaction.payer]+=transaction.points
+        }else{
+            hash[transaction.payer]=transaction.points
+        }
+    }
+    const result = []
+    for(let key in hash){
+        result.push({payer:key,points:hash[key]})
+    }
+    return res.status(200).json(
+        result
+    )
 })
 
 app.get('/test',(req,res)=>{
