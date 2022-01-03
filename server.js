@@ -96,6 +96,7 @@ app.post('/spend',(req,res)=>{
 
 })
 
+//accounts routes is a get with no body expectations
 app.get('/accounts',(req,res)=>{
     const hash ={}
     for(let transaction of transactions){
@@ -112,10 +113,6 @@ app.get('/accounts',(req,res)=>{
     return res.status(200).json(
         result
     )
-})
-
-app.get('/test',(req,res)=>{
-    res.send('hello world')
 })
 
 const port = 4000;
